@@ -1,5 +1,6 @@
 "espn-cfb-rankings-scraper.py"
 
+import argparse
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -16,15 +17,16 @@ YEARS_AND_WEEKS = [
     (2017, 15),
     (2018, 15),
     (2019, 16),
-    (2020, 16)
+    (2020, 16),
+    (2021, 10)
 ]
 
 def get_index_string(year, week):
     return f'y{year}w{str(week).zfill(2)}'
 
-def download_pages(crawl_delay):
+def download_pages(crawl_delay, years_and_weeks=YEARS_AND_WEEKS):
     """Download the pages that we'll use later for scraping"""
-    for (year, weeks) in YEARS_AND_WEEKS:
+    for (year, weeks) in years_and_weeks:
         for week in range(1, weeks + 1):
             index_string = get_index_string(year=year, week=week)
             response = requests.get(URL_FORMAT.format(week, year))
@@ -95,8 +97,23 @@ def write_polls(outfile, intermediate_results):
     df.to_csv(outfile, index=False)
 
 def main():
-    #download_pages(crawl_delay=5)
-    write_polls(outfile='polls.csv', intermediate_results=False)
+    parser = argparse.ArgumentParser(description='Scrape AP Top 25 Poll rankings from ESPN.')
+    parser.add_argument('--download', action='store_true', help='Download poll pages from the internet.')
+    parser.add_argument('--crawl_delay', type=int, default=5, help='Crawl delay (in seconds) for downloads.')
+    parser.add_argument('--year', type=int, default=None, required=False, help='Optional. Parse a specific year.')
+    parser.add_argument('--weeks', type=int, default=None, required=False, help='Optional. Parse first n weeks of provided year.')
+    parser.add_argument('--write', action='store_true', help='Write results to csv.')
+    parser.add_argument('--outfile', default='polls.csv', required=False, help='Filename for csv result file.')
+    parser.add_argument('--intermediate-results', action='store_true', help='Store intermediate write results for debugging purposes.')
+    args = parser.parse_args()
+
+    if args.download:
+        years_and_weeks = YEARS_AND_WEEKS
+        if args.year is not None:
+            years_and_weeks = [(args.year, args.weeks if args.weeks is not None else 16)]
+        download_pages(crawl_delay=args.crawl_delay, years_and_weeks=years_and_weeks)
+    if args.write:
+        write_polls(outfile=args.outfile, intermediate_results=args.intermediate_results)
 
 if __name__ == '__main__':
     main()
